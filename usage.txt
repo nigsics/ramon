@@ -1,0 +1,305 @@
+#    -*- mode: org; org-export-html-validation-link: nil; -*-
+#+OPTIONS: ^:{}
+
+A Rate Monitor for Linux
+
+#+BEGIN_EXAMPLE
+Developed by Per Danielsson, Per Kreuger, and Rebecca Steinert
+Network Intelligence group
+Decisions, Networks and Analytics laboratory
+SICS Swedish ICT 
+SE-164 29 Kista, Sweden 
+E-mail: {pd, piak, rebste}@sics.se
+
+Based on the paper:
+P. Kreuger and R. Steinert. "Scalable in-network rate monitoring",
+in Proc. IFIP/IEEE International Symposium on Integrated Network Management (IM),
+Ottawa, Canada, May 2015.
+
+Acknowledgement:
+The research leading to these results has received funding from
+the European Union Seventh Framework Programme under grant agreement
+No. 619609 (see https://www.fp7-unify.eu/)
+and EIT ICT Labs Future Networking Solutions  Activity 15270 SDN@EDGE.
+#+END_EXAMPLE
+
+* Introduction
+
+  This document is a brief description of a rate monitor for Linux
+  which can be used to monitor the data rate of a network interface.
+
+  The rate monitor will sample the traffic on the specified network
+  interface and estimate the parameters of a log-normal
+  distribution.
+
+  The monitor can be run in two modes.
+
+  1. A standalone program recording the data from the
+     monitor (i.e. traffic rates and estimation parameters) in a text
+     file in JSON format.
+
+  2. Running in an OpenStack environment recording the monitor data in
+     Ceilometer. (Se section "Storing the monitor data in Ceilometer"
+     below).
+
+  The mode is determined by the -f option at startup.
+
+* Dependencies of the monitor code
+
+** Linux
+
+   The monitor has been developed and tested for Ubuntu 14.04, but it will
+   probably work on other modern Linux versions and distributions.
+
+** Python version
+
+   The monitor runs in Python 2.7.
+
+   You must to change the first line in the files run_monitor.py and
+   monconf.py if the path to your default Python installation does not
+   match the one specified.
+
+** Python pre-requisites
+
+*** Requests
+
+    The Requests HTTP library is used for communication with Ceilometer.
+
+    Installation instructions:
+    http://docs.python-requests.org/en/latest/user/install
+
+*** Scipy
+
+    Installation instructions:
+    http://scipy.org/install.html
+
+*** sh
+
+    Documentation: http://amoffat.github.io/sh/
+
+    Install with pip:
+    #+BEGIN_EXAMPLE
+    $ pip install sh
+    #+END_EXAMPLE
+
+* Known limitations and issues
+
+** The timing for the sampling of the interface data counters is not very sophisticated.
+
+    It is possible to sample about 1000 times per second,
+    but the sampling rate will most likely vary somewhat.
+
+** The rate monitor has not been tested for wireless interfaces.
+
+** The rate monitor configuration port is hardcoded to 54736.
+
+   This means that setting the --port option when running monconf.py
+   will have no effect.
+
+** Bad time synchronization between the rate monitor and Ceilometer may cause data loss.
+
+   If the clocks on the computer running the rate monitor and the
+   computer running Ceilometer differ too much, data may not be
+   recorded in Ceilometer, and no error will be propagated to the
+   rate monitor.
+
+* <<Data stored by the rate monitor>>
+
+  The data is stored in a JSON object with the following names.
+   #+BEGIN_EXAMPLE
+   'timestamp':           Date and time when this data was recorded.
+   'interface':           The network interface being monitored.
+   'linerate':            The line rate of the interface being monitored.
+   'alarm_trigger_value': The trigger value for the overload risk over which to set the alarm flag to True.
+   'cutoff':              The percentage for the link speed to use in the overload risk estimation.
+   'tx':                  The mean transmission rate during the last estimation period.
+   'var_tx':              The variance of the transmission rate during last estimation period.
+   'mu_tx':               The location parameter of the estimated log-normal distribution for outgoing traffic.
+   'sigma2_tx':           The scale parameter of the estimated log-normal distribution for outgoing traffic.
+   'overload_risk_tx':    The overload risk in percent: (1 - cdf) * 100, (cdf = cumulative density function) for outgoing traffic.
+   'alarm_tx':            True or False.
+   'rx':                  The mean reception rate during the last estimation period.
+   'var_rx':              The variance of the reception rate during the last estimation period.
+   'mu_rx':               The location parameter of the estimated log-normal distribution for incoming traffic.
+   'sigma2_rx':           The scale parameter of the estimated log-normal distribution for incoming traffic.
+   'overload_risk_rx':    The overload risk in percent: (1 - cdf) * 100 (cdf = cumulative density function) for incoming traffic.
+   'alarm_rx':            True or False.
+   'sample_rate':         The sample rate of the monitor.
+   'estimation_interval': The estimation interval of the monitor.
+   'meter_interval':      The metering interval of the monitor.
+   #+END_EXAMPLE
+
+  When the monitor is used in mode 1 it will store a sequence of such
+  JSON objects in a file the user specified at startup.
+
+  See the next section for how data is stored when the monitor is
+  used in mode 2.
+
+* Storing the monitor data in Ceilometer
+
+   A minimal OpenStack installation of one controller node, running
+   Ceilometer and its necessary support services, is sufficient for
+   testing.
+
+   The monitor can run on any computer that can connect to the
+   Ceilometer node; on a physical computer or on a VM.
+
+   We use the web API of Ceilometer to store metering data in
+   Ceilometer.
+
+   This is documented at
+   http://docs.openstack.org/developer/ceilometer/webapi/v2.html#user-defined-data.
+
+   More hints can be found at
+   http://docs.openstack.org/admin-guide-cloud/content/section_telemetry-post-api.html
+   and here:
+   https://www.mirantis.com/blog/openstack-metering-using-ceilometer
+
+   Storing the data in Ceilometer is done by a HTTP POST, with a JSON
+   object as the data provided. See the code in the file
+   ceilocomm.py, specifically the method putMeter(), for details.
+
+** Required fields
+
+   The required fields of the JSON data to store a meter are (values
+   in this example are arbitrary):
+
+   #+BEGIN_EXAMPLE
+   "counter_name": "test",
+   "user_id": "admin",
+   "resource_id": "76799085-e0ff-4620-9b7f-120d3c51cc49",
+   "counter_unit": "%",
+   "counter_volume": 10.57762938230384,
+   "project_id": "855f014353ec48d98ef7b887fc6980e1",
+   "counter_type": "gauge"
+   #+END_EXAMPLE
+
+   Contrary to the documentation mentioned above, project_id is a
+   required field.
+
+** Data stored by the meter
+
+   All data from the rate monitor is stored in the resource_metadata
+   field of the JSON data. See the section [[Data stored by the rate monitor]]
+   for details of what data will be stored.
+
+*** Example of meter data stored in Ceilometer
+
+   #+BEGIN_EXAMPLE
+   {
+      "counter_name": "sdn_at_edge", 
+      "user_id": "855f014353ec48d98ef7b887fc6980e1", 
+      "resource_id": "76799085-e0ff-4620-9b7f-120d3c51cc49", 
+      "timestamp": "2015-05-07T14:17:47.665000", 
+      "counter_volume": 4711.0, 
+      "resource_metadata": <a JSON object as described above>, 
+      "source": "76799085-e0ff-4620-9b7f-120d3c51cc49:openstack", 
+      "counter_unit": "b/s", 
+      "recorded_at": "2015-05-07T14:17:47.678000", 
+      "project_id": "76799085-e0ff-4620-9b7f-120d3c51cc49", 
+      "message_id": "d62753ec-f4c3-11e4-9642-080027486ab1", 
+      "counter_type": "gauge"
+   }
+   #+END_EXAMPLE
+
+   timestamp, source, recorded_at, and message_id are added by the
+   Ceilometer API, and should not be specified by the user of the API.
+
+* Configuring the rate monitor
+
+  Configuring the rate monitor is done at start-up. Do 'run_monitor -h'
+  for a list of configuration parameters.
+
+** Start parameters
+
+   #+BEGIN_EXAMPLE
+   -f, --meter_file  [1] Name of a file to append metering data to.
+                         Setting this option will start the monitorn in mode 1.
+                         Omitting the -f option will start the monitor in mode 2.
+   -i, --interface       Interface to monitor; default "eth0".
+   -s, --sample_rate     How often to sample; default 1000 samples per second.
+   -e, --estimation_interval    How often to estimate; default every 10 seconds.
+   -m, --meter_interval  How often to meter; default every 30 seconds.
+   -k, --link_speed      Set the link speed value for the monitored interface (in Mbits per second).
+   -a, --alarm_trigger   The overload risk which will trigger an alarm; default 95%.
+   -o, --cutoff          A percentage for the link speed to use in the overload risk calculation; default 99%.
+   -n, --meter_name  [2] The name of this meter in Ceilometer.
+   -r, --resource_ID [2] Resource identifier for the resource to associate with the meter in Ceilometer.
+   -p, --project_ID  [2] Project identifier for the resource to associate with the meter in Ceilometer.
+   -c, --controller  [2] The IP adress of the controller running Ceilometer; default 10.0.0.11.
+   -u, --username    [2] OpenStack User name; default "admin".
+   -w, --password    [2] Password.
+   -t, --tenantname  [2] OpenStack Tenant name; default "admin".
+   -d, --debug           Debug flag
+   -l, --log             Log debug messages to a file of the form monitor_<meter_name>_%Y-%m-%dT%H.%M.%S.log.
+   -v, --version         Show version and exit.
+
+[1] Mode 1 only.
+[2] Mode 2 only.
+   #+END_EXAMPLE
+
+** Configuration at run-time
+
+   The rate monitor can be configured at run-time with 'monconf.py'.
+   Do 'monconf.py -h' for a list of configuration parameters.
+
+   These parameters can currently be configured:
+   #+BEGIN_EXAMPLE
+   --pause                   Pause the rate monitor.
+   --resume                  Resume the rate monitor.
+   --status                  Show the status of the rate monitor.
+   --exit                    Tell the rate monitor to exit.
+                             Setting this option will cause all other options to be ignored.
+   -i, --interface           Interface to monitor.
+   -s, --sample_rate         Sample rate in samples per second.
+   -e, --estimation_interval Estimation interval in seconds.
+   -m, --meter_interval      Meter interval in seconds.
+   -k, --link-speed          Set the link speed value for the monitored interface (in Mbits per second).
+   -a, --alarm-trigger       The rate which will trigger an alarm (in Mbits per second).
+   -o, --cutoff              A percentage of the link speed to use in the overload risk calculation; default 99%.
+   #+END_EXAMPLE
+
+   Other options for monconf.py:
+   #+BEGIN_EXAMPLE
+   --host    IP or name of the computer running the rate monitor. Default is 127.0.0.1.
+   --port    Port of the computer running the rate monitor. Default is 54736.
+   #+END_EXAMPLE
+
+   The default port number is the port number currently hardwired
+   into 'monitor.py' so no other portnumber will work.
+
+* Starting the rate monitor
+
+  Simply start run_monitor.py from a shell with the appropriate
+  configuration parameters.
+
+  With the debug flag the monitor will only display the metering data
+  on in the controlling terminal and will not store data persistently.
+
+* Stopping the rate monitor
+
+  Use the --exit option of monconf.py or type ^C in the terminal
+  running the rate monitor.
+
+-----
+* License
+
+#+BEGIN_HTML
+<pre class="example">
+Copyright 2015 SICS Swedish ICT AB
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    <a href=http://www.apache.org/licenses/LICENSE-2.0>http://www.apache.org/licenses/LICENSE-2.0</a>
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+</pre>
+#+END_HTML
+
+-----
