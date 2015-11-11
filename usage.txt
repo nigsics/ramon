@@ -222,7 +222,7 @@ and EIT ICT Labs Future Networking Solutions  Activity 15270 SDN@EDGE.
    -m, --meter_interval  How often to meter; default every 30 seconds.
    -k, --link_speed      Set the link speed value for the monitored interface (in Mbits per second).
    -a, --alarm_trigger   The overload risk which will trigger an alarm; default 95%.
-   -o, --cutoff          A percentage for the link speed to use in the overload risk calculation; default 99%.
+   -o, --cutoff          A percentage of the link speed to use in the overload risk calculation; default 99%.
    -n, --meter_name  [2] The name of this meter in Ceilometer.
    -r, --resource_ID [2] Resource identifier for the resource to associate with the meter in Ceilometer.
    -p, --project_ID  [2] Project identifier for the resource to associate with the meter in Ceilometer.
@@ -254,8 +254,8 @@ and EIT ICT Labs Future Networking Solutions  Activity 15270 SDN@EDGE.
    -s, --sample_rate         Sample rate in samples per second.
    -e, --estimation_interval Estimation interval in seconds.
    -m, --meter_interval      Meter interval in seconds.
-   -k, --link-speed          Set the link speed value for the monitored interface (in Mbits per second).
-   -a, --alarm-trigger       The rate which will trigger an alarm (in Mbits per second).
+   -k, --link_speed          Set the link speed value for the monitored interface (in Mbits per second).
+   -a, --alarm_trigger       The overload risk which will trigger an alarm (a percentage).
    -o, --cutoff              A percentage of the link speed to use in the overload risk calculation; default 99%.
    #+END_EXAMPLE
 

@@ -17,6 +17,7 @@
 import argparse
 import socket
 import json
+#import pdb
 from version import __version__
 
 parser = argparse.ArgumentParser(description="Monitor Configuration")
@@ -28,9 +29,9 @@ parser.add_argument('-i', "--interface", help='Interface to monitor')
 parser.add_argument('-s', "--sample_rate", help='Sample rate in samples per second', type=int)
 parser.add_argument('-e', "--estimation_interval", help='Estimation interval in seconds', type=int)
 parser.add_argument('-m', "--meter_interval", help='Meter interval in seconds', type=int)
-parser.add_argument('-k', "--link-speed", help='Set the link speed value for the monitored interface (in Mbits per second)', type=int)
-parser.add_argument('-a', "--alarm-trigger", help='The rate which will trigger an alarm (in Mbits per second)', type=int)
-parser.add_argument('-o', "--cutoff", help='A percentage of the link speed to use in the overload risk calculation; default 99%%', type=int, default="99")
+parser.add_argument('-k', "--link_speed", help='Set the link speed value for the monitored interface (in Mbits per second)', type=int)
+parser.add_argument('-a', "--alarm_trigger", help='The overload risk which will trigger an alarm (a percentage)', type=int)
+parser.add_argument('-o', "--cutoff", help='A percentage of the link speed to use in the overload risk calculation', type=int)
 # The following are "local" arguments, and will not be sent to the monitor.
 parser.add_argument("--host", help='IP or name of the computer running the rate monitor; default 127.0.0.1', nargs='?', default="127.0.0.1")
 parser.add_argument("--port", help='Port of the computer running the rate monitor; default 54736', nargs='?', default="54736", type=int)
@@ -48,6 +49,7 @@ if args.version is True:
 # print(args)
 # # END DEBUG
 
+#pdb.set_trace()
 if args.exit:
     message = {'exit': True}
 else:
@@ -69,9 +71,8 @@ else:
     meter_interval = args.meter_interval
 
     message = {}
-    for confparam in ['resume','pause','status','interface','sample_rate','estimation_interval','meter_interval']:
+    for confparam in ['resume','pause','status','interface','sample_rate','estimation_interval','meter_interval','link_speed','alarm_trigger','cutoff']:
         confval = getattr(args,confparam)
-#        if confval != None:
         if not confval is None:
             message[confparam] = getattr(args,confparam)
 
@@ -96,4 +97,5 @@ if message:
     except Exception as e:
         print(e)
         print(reply)
-
+else:
+    print('unimplemented option')

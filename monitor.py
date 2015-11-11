@@ -93,9 +93,10 @@ class Monitor():
         if alarm_trigger_value is None:
             raise RuntimeError('missing alarm_trigger_value in Monitor.__init__')
         else:
-            self.alarm_trigger_value = alarm_trigger_value
+            self.set_alarm_trigger(alarm_trigger_value)
 
-        self.cutoff = cutoff / 100.0
+        self.set_cutoff(cutoff)
+
         if self.debug and self.log:
             self.logger = logging.getLogger(__name__)
             now = datetime.now()
@@ -118,7 +119,7 @@ class Monitor():
         if link_speed is None:
             self.interface_type,self.linerate = self.get_linerate(interface)
         else:
-            self.linerate = link_speed * 1024 * 1024 / 8 # convert from Mbit/s to bytes/s
+            self.set_link_speed(link_speed)
             self.interface_type = InterfaceType.Ethernet
         self.est_interval = estimation_interval
         self.meter_interval = meter_interval
@@ -220,6 +221,19 @@ class Monitor():
         self.meter_interval = interval
 
 
+    # Set linerate (link speed in Mbits/s)
+    def set_link_speed(self,link_speed):
+        self.linerate = link_speed * 1024 * 1024 / 8 # convert from Mbit/s to bytes/s
+        
+    # Set alarm trigger value (overload risk which will trigger an alarm; percentage)
+    def set_alarm_trigger(self,alarm_trigger_value):
+        self.alarm_trigger_value = alarm_trigger_value        
+
+    # Set the cutoff for the overload risk calculation
+    def set_cutoff(self,cutoff):
+        self.cutoff = cutoff / 100.0
+
+
     def listen_for_configuration(self):
         server = createConfServer(self.conflistener_IP,self.conflistenerport,self)
         server.serve_forever()
@@ -286,8 +300,27 @@ class Monitor():
         if not meter_interval is None:
             self.set_meter_interval(meter_interval)
             reply['meter_interval'] = self.meter_interval
+        #
+        link_speed = data.get('link_speed')
+        if not link_speed is None:
+            self.set_link_speed(link_speed)
+            reply['linerate'] = self.linerate
+        #
+        alarm_trigger = data.get('alarm_trigger')
+        if not alarm_trigger is None:
+            self.set_alarm_trigger(alarm_trigger)
+            reply['alarm_trigger'] = self.alarm_trigger_value
+        #
+        cutoff = data.get('cutoff')
+        if not cutoff is None:
+            self.set_cutoff(cutoff)
+            reply['cutoff'] = self.cutoff
+        #
         if self.debug:
             self.debugPrint('handle_configuration: ' + repr(self.config_reply) + '.put(' + repr(reply) + ')')
+#        pdb.set_trace()
+        if reply == {}:
+            reply['unknown option(s)'] = data
         self.config_reply.put(reply)
         if self.debug:
             self.debugPrint('handle_configuration: qsize==' + repr(self.config_reply.qsize()))

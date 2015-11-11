@@ -32,7 +32,7 @@ parser.add_argument('-e',"--estimation_interval", help='How often to estimate; d
 parser.add_argument('-m',"--meter_interval", help='How often to meter; default every 30 seconds',nargs='?', default='30.0', type=float)
 parser.add_argument('-k',"--link_speed", help='Set the link speed value for the monitored interface (in Mbits per second)', type=int)
 parser.add_argument('-a',"--alarm_trigger", help='The overload risk which will trigger an alarm; default 95%%', type=int, default=95)
-parser.add_argument('-o',"--cutoff", help='A percentage for the link speed to use in the overload risk calculation; default 99%%', type=int, default="99")
+parser.add_argument('-o',"--cutoff", help='A percentage of the link speed to use in the overload risk calculation; default 99%%', type=int, default="99")
 parser.add_argument('-n',"--meter_name", help='The name of this meter in Ceilometer')
 parser.add_argument('-r',"--resource_ID", help='Resource identifier for the resource to associate with the meter',nargs='?')
 parser.add_argument('-p',"--project_ID", help='Project identifier for the resource to associate with the meter',nargs='?')
