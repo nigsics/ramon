@@ -20,6 +20,7 @@ import time
 import math
 import json
 import sys
+import traceback
 import SocketServer
 
 from threading import Thread, Event
@@ -119,7 +120,7 @@ class Monitor():
         if link_speed is None:
             self.interface_type,self.linerate = self.get_linerate(interface)
         else:
-            self.set_link_speed(link_speed)
+            self.set_linerate(link_speed)
             self.interface_type = InterfaceType.Ethernet
         self.est_interval = estimation_interval
         self.meter_interval = meter_interval
@@ -221,9 +222,10 @@ class Monitor():
         self.meter_interval = interval
 
 
-    # Set linerate (link speed in Mbits/s)
-    def set_link_speed(self,link_speed):
-        self.linerate = link_speed * 1024 * 1024 / 8 # convert from Mbit/s to bytes/s
+    # Set linerate (link_speed is given in Mbits/s)
+    def set_linerate(self,link_speed):
+#        self.linerate = link_speed * 1024 * 1024 / 8 # convert from Mbit/s to bytes/s
+        self.linerate = link_speed * 1000 * 1000 / 8 # convert from Mbit/s to bytes/s
         
     # Set alarm trigger value (overload risk which will trigger an alarm; percentage)
     def set_alarm_trigger(self,alarm_trigger_value):
@@ -303,7 +305,7 @@ class Monitor():
         #
         link_speed = data.get('link_speed')
         if not link_speed is None:
-            self.set_link_speed(link_speed)
+            self.set_linerate(link_speed)
             reply['linerate'] = self.linerate
         #
         alarm_trigger = data.get('alarm_trigger')
@@ -451,6 +453,7 @@ class Monitor():
 
         except ValueError as ve:
             print("\33[2KError in estimation: ({}):".format(ve))
+            traceback.print_exc()
             print("\33[2Kmean_tx: %.2e, mean_rx: %.2e "%(self.mean_tx,self.mean_rx))
             print("\33[2Kvar_tx: %.2e, var_rx: %.2e "%(self.var_tx,self.var_rx))
             print("\33[2Kmean_square_tx: %.2e, mean_square_rx: %.2e "%(mean_square_tx,mean_square_rx))
@@ -459,7 +462,7 @@ class Monitor():
 
         try:
             print("\33[H",end="") # move cursor home
-            print("\33[2KEstimate (sample_rate: {:d} actual({:d}), interface: {}, line rate: {:d}".format(sampler.get_sample_rate(), n, sampler.get_interface(),self.linerate))
+            print("\33[2KEstimate (sample_rate: {:d} actual({:d}), interface: {}, linerate: {:d}".format(sampler.get_sample_rate(), n, sampler.get_interface(),self.linerate))
             print("\33[2KTX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2f) "%(self.mean_tx,math.sqrt(self.var_tx),self.mu_tx,self.sigma2_tx, self.overload_risk_tx))
             print("\33[2KRX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2f) "%(self.mean_rx,math.sqrt(self.var_rx),self.mu_rx,self.sigma2_rx, self.overload_risk_rx))
             print("\33[2Kestimation timer: {:.4f}".format(est_timer))
@@ -471,6 +474,7 @@ class Monitor():
                 print("\33[2Ksample_queue size: %s"%str(self.sample_queue.qsize()))
         except ValueError as ve:
             print("\33[2KError in display ({}):".format(ve))
+            traceback.print_exc()
             print("\33[2Kvar_tx: %.2e, var_rx: %.2e "%(self.var_tx,self.var_rx))
             print("\33[2Krate_data: %s"%(rate_data,))
             exit(1)
@@ -482,11 +486,11 @@ class Monitor():
             self.sample_queue.get()
             self.sample_queue.task_done()
 
-    # Return a tuple with interface type and link speed
+    # Return a tuple with interface type and linerate
     def get_linerate(self,interface):
-#        if sys.platform == 'darwin': # Fake it on OS X
         if OS == OS_type.darwin:      # Fake it on OS X
-            lr = (InterfaceType.Ethernet,(1024*1024)/8) # 1 Gbit/s in bytes/s
+            # 1 Gbit/s in bytes/s (NOTE: 1000, not 1024; see IEEE 802.3-2008)
+            lr = (InterfaceType.Ethernet,(1000*1000*1000)/8)
         else:
             lr = self.get_linerate_ethernet(interface)
             if lr is None:
@@ -495,12 +499,13 @@ class Monitor():
 
     def get_linerate_ethernet(self,interface):
         try:
+            # The link speed in Mbits/sec.
             with open("/sys/class/net/{interface}/speed".format(interface=interface)) as f:
-                speed = int(f.read())
+                speed = int(f.read()) * 1000 * 1000 / 8 # convert to bytes/s (NOTE: 1000, not 1024; see IEEE 802.3-2008)
         except IOError:
             speed = None
         finally:
-            return 'eth',speed
+            return InterfaceType.Ethernet,speed
 
     def get_linerate_wireless(self,interface):
         try:
@@ -508,7 +513,8 @@ class Monitor():
             rx = re.compile("Bit Rate=([0-9]+)\s*Mb/s", re.MULTILINE | re.IGNORECASE)
             lrg = rx.search(iwres)
             if lrg.groups() != ():
-                lr = (InterfaceType.Wireless,int(lrg.group(1)) / 1024 / 1024) # convert bit/s to Mbit/s
+                bit_rate = int(lrg.group(1)) # Mbits/s
+                lr = (InterfaceType.Wireless,bit_rate * 1000 * 1000 / 8) # convert Mbit/s to bytes/s (NOTE: 1000, not 1024; see IEEE 802.3-2008)
                 return lr
             else:
                 return None,None

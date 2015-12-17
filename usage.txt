@@ -109,7 +109,7 @@ and EIT ICT Labs Future Networking Solutions  Activity 15270 SDN@EDGE.
    #+BEGIN_EXAMPLE
    'timestamp':           Date and time when this data was recorded.
    'interface':           The network interface being monitored.
-   'linerate':            The line rate of the interface being monitored.
+   'linerate':            The line rate in bytes per second of the interface being monitored.
    'alarm_trigger_value': The trigger value for the overload risk over which to set the alarm flag to True.
    'cutoff':              The percentage for the link speed to use in the overload risk estimation.
    'tx':                  The mean transmission rate during the last estimation period.

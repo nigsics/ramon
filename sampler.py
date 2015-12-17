@@ -43,6 +43,12 @@ class Sampler(Thread):
         self.rx_file = None
         self.samples = 0
         self.last_data = self.get_interface_data(self.interface)
+        # FIXME: These two should be inferred by checking the word
+        #        length of the computer we're running on.
+        #        Perhaps with platform.architecture() or sys.maxsize
+        #        For now assume 32-bit architecture.
+        self.tx_byte_counter_wrap_adjustment = (2 ** 32) - 1
+        self.rx_byte_counter_wrap_adjustment = (2 ** 32) - 1
 
 
     def run(self):
@@ -81,12 +87,31 @@ class Sampler(Thread):
     def sample(self):
         self.samples += 1
         curr = self.get_interface_data(self.interface)
+
+        if curr[1] < self.last_data[1]:
+            # tx counter has wrapped
+            self.monitor.debugPrint("sampler.py: self.last_data[1] before wrap adjustment: " + str(self.last_data[1]))
+            self.last_data[1] -= self.tx_byte_counter_wrap_adjustment
+       
         tx_bytes = curr[1] - self.last_data[1]
+
+        if curr[2] < self.last_data[2]:
+            # rx counter has wrapped
+            self.monitor.debugPrint("sampler.py: self.last_data[2] before wrap adjustment: " + str(self.last_data[2]))
+            self.last_data[2] -= self.rx_byte_counter_wrap_adjustment
+
         rx_bytes = curr[2] - self.last_data[2]
+
         timestamp = curr[0] #- self.last_data[0]
         obs_time = timestamp - self.last_data[0]
 
-        self.last_data = curr
+        if self.debug:
+            self.monitor.debugPrint("sampler.py: curr: " + str(curr) + ", self.last_data: " + str(self.last_data))
+            self.monitor.debugPrint("sampler.py: tx_bytes: " + str(tx_bytes) + ", rx_bytes: " + str(rx_bytes))
+            self.monitor.debugPrint("sampler.py: obs_time: " + str(obs_time))
+
+#        self.last_data = curr
+        self.last_data = list(curr) # copy curr
 
         tx_byte_rate  = tx_bytes / obs_time
         rx_byte_rate  = rx_bytes / obs_time
@@ -94,6 +119,9 @@ class Sampler(Thread):
         self.rx_agg = self.rx_agg + rx_byte_rate
         self.txb2 = self.txb2 + (tx_byte_rate*tx_byte_rate)
         self.rxb2 = self.rxb2 + (rx_byte_rate*rx_byte_rate)
+
+        if self.debug:
+            self.monitor.debugPrint("sampler.py: tx_byte_rate: " + str(tx_byte_rate) + ", rx_byte_rate: " + str(rx_byte_rate) + ", self.tx_agg: " + str(self.tx_agg) + ". self.rx_agg: " + str(self.rx_agg) + ", self.txb2: " + str(self.txb2) + ", self.rxb2: " + str(self.rxb2))
 
         return timestamp
             
@@ -113,6 +141,9 @@ class Sampler(Thread):
                     return time.time(),rx_bytes,tx_bytes
             return  time.time(),0,0
         else:
+            # FIXME: Perhaps open the tx_file and the rx_file in the
+            #        __init__ method instead. Is there really a good
+            #        reason for doing it this way?
             tx_fn = "/sys/class/net/%s/statistics/tx_bytes" % interface
             rx_fn = "/sys/class/net/%s/statistics/rx_bytes" % interface
             if self.tx_file is None:
@@ -129,7 +160,8 @@ class Sampler(Thread):
                 self.rx_file.seek(0)
                 rx_bytes = int(self.rx_file.read())
 
-            return time.time(), tx_bytes, rx_bytes
+#            return time.time(), tx_bytes, rx_bytes
+            return [time.time(), tx_bytes, rx_bytes]
 
 
     # 

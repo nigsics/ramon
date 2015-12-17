@@ -98,4 +98,4 @@ if message:
         print(e)
         print(reply)
 else:
-    print('unimplemented option')
+    print('unimplemented or empty option')
