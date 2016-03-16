@@ -25,6 +25,8 @@ from monitor import Monitor
 # on the command line or not even if it should have a default value.
 
 parser = argparse.ArgumentParser(description="Monitor")
+parser.add_argument('-b',"--meter_port", help='Port to send metering data to. This will inhibit storing metering data in Ceilometer',dest='meter_port',action='store',nargs='?',const=None,default=None, type=int)
+parser.add_argument('-g',"--meter_host", help='Host to send metering data to if the --meter-port argument is given; default is localhost. This will inhibit storing metering data in Ceilometer',dest='meter_host',action='store',nargs='?',const=None,default=None)
 parser.add_argument('-f',"--meter_file", help='Name of a file to append metering data to. This will inhibit storing metering data in Ceilometer',dest='meter_file',action='store',nargs='?',const=None,default=None)
 parser.add_argument('-i',"--interface", help='Interface to monitor; default "eth0"', nargs='?', default='eth0')
 parser.add_argument('-s',"--sample_rate", help='How often to sample; default 1000 samples per second',nargs='?', default='1000', type=int)
@@ -46,11 +48,11 @@ parser.add_argument('-v',"--version", help='Show version and exit',action='store
 
 args = parser.parse_args()
 
-# Mode 1: output to file
+# Mode 1: output to file and/or port
 # valid options:
-# -i, -s, -e, -m, -k, -a, -o, -d, -l, -f, -v
+# -i, -s, -e, -m, -k, -a, -o, -d, -l, -f, -b, -v
 # mandatory options:
-# -f (obviously, since it triggers mode 1 behavior)
+# -f or -b (obviously, since it triggers mode 1 behavior)
 # invalid options:
 # -n, -r, -p, -c, -u, -w, -t
 # 
@@ -60,10 +62,10 @@ args = parser.parse_args()
 # mandatory options:
 # -n, -r, -p, -w
 # invalid option:
-# -f
+# -f, -b
 # 
-# The presence of the -f option determines the mode.
-# if -f is present:
+# The presence of the -f or -b option determines the mode.
+# if -f or -b is present:
 #     we are running in mode 1
 # else:
 #     we are running in mode 2
@@ -73,7 +75,7 @@ if args.version is True:
     print(__version__)
     exit(0)
 
-if args.meter_file is None:     # mode 2
+if args.meter_file is None and args.meter_port is None:     # mode 2
     mode = 2
 else:                           # mode 1
     mode = 1
@@ -120,7 +122,8 @@ if mode == 2:
 else:
     # There are no mandatory options in mode 1, except for -f which of
     # course already is present if we are in mode 1.
-    pass
+    if args.meter_host is None:
+        args.meter_host = '127.0.0.1'
 
 mon = Monitor(meter_name=args.meter_name,
               sample_rate=args.sample_rate,
@@ -136,6 +139,8 @@ mon = Monitor(meter_name=args.meter_name,
               debug=args.debug,
               log=args.log,
               meter_file_name=args.meter_file,
+#              meter_host_and_port=args.meter_port,
+              meter_host_and_port=(args.meter_host,args.meter_port),
               username=args.username,
               password=args.password,
               tenantname=args.tenantname,

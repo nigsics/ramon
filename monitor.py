@@ -37,7 +37,10 @@ else:
     OS = OS_type.other
 
 if OS != OS_type.darwin:
-    from sh import iwconfig,ErrorReturnCode
+    try:
+        from sh import iwconfig,ErrorReturnCode
+    except Exception as ex:
+        print("WARNING: import from sh failed - " + str(ex))
 
 from scipy.stats import lognorm
 from datetime import datetime, timedelta, tzinfo
@@ -76,6 +79,8 @@ class Monitor():
                  conflistenerport=54736,
                  meter_file_name=None, # if not None, write metering
                                        # data to a file instead of to Ceilometer
+                 meter_host_and_port=None, # if not None, write metering
+                                       # data to a local port instead of to Ceilometer
                  debug=False,
                  log=False,
                  resid=None,
@@ -119,6 +124,8 @@ class Monitor():
         #
         if link_speed is None:
             self.interface_type,self.linerate = self.get_linerate(interface)
+            if self.linerate is None:
+                raise(ValueError("Cannot determine the linerate of " + interface))
         else:
             self.set_linerate(link_speed)
             self.interface_type = InterfaceType.Ethernet
@@ -132,7 +139,8 @@ class Monitor():
             self.ceilocomm = None
         else:
             self.ceilocomm = CeiloComm(resid,projid,controller=controller_IP,
-                                       file_name=meter_file_name)
+                                       file_name=meter_file_name,
+                                       host_and_port=meter_host_and_port)
         self.authpassword = password
         if not self.debug:
             self.get_auth_token()
@@ -594,6 +602,12 @@ class Monitor():
         conflistener = Thread(target=self.listen_for_configuration)
         conflistener.setDaemon(True)
         conflistener.start()
+
+### FIXME:
+#   The conflistener may not be completely initialized when ceilocomm
+#   starts sending messages on the local port (in mode 1).
+#   We should wait for the conflistener to initialize before
+#   proceeding here.
 
         print("\33[2J")         # clear screen
         self.ceilomessage('initialized')
