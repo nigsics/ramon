@@ -76,7 +76,7 @@ class Monitor():
                  interface="eth0",
                  controller_IP='10.0.0.11',
                  conflistener_IP='0.0.0.0',
-                 conflistenerport=54736,
+                 confport=54736,
                  meter_file_name=None, # if not None, write metering
                                        # data to a file instead of to Ceilometer
                  meter_host_and_port=None, # if not None, write metering
@@ -113,7 +113,7 @@ class Monitor():
             # make the 'sh' module be quiet
             logging.getLogger("sh").setLevel(logging.CRITICAL + 1)
         self.conflistener_IP=conflistener_IP
-        self.conflistenerport=conflistenerport
+        self.conflistenerport=confport
         self.name = name
         #
         self.config_queue = Queue()
@@ -129,6 +129,7 @@ class Monitor():
         else:
             self.set_linerate(link_speed)
             self.interface_type = InterfaceType.Ethernet
+        self.link_speed = self.linerate_to_link_speed(self.linerate)
         self.est_interval = estimation_interval
         self.meter_interval = meter_interval
         self.resource_ID = resid
@@ -235,6 +236,10 @@ class Monitor():
 #        self.linerate = link_speed * 1024 * 1024 / 8 # convert from Mbit/s to bytes/s
         self.linerate = link_speed * 1000 * 1000 / 8 # convert from Mbit/s to bytes/s
         
+    # Convert back from linerate in bytes/s to link speed in Mbit/s
+    def linerate_to_link_speed(self,linerate):
+        return linerate * 8 / 1000 / 1000
+
     # Set alarm trigger value (overload risk which will trigger an alarm; percentage)
     def set_alarm_trigger(self,alarm_trigger_value):
         self.alarm_trigger_value = alarm_trigger_value        
@@ -470,9 +475,11 @@ class Monitor():
 
         try:
             print("\33[H",end="") # move cursor home
-            print("\33[2KEstimate (sample_rate: {:d} actual({:d}), interface: {}, linerate: {:d}".format(sampler.get_sample_rate(), n, sampler.get_interface(),self.linerate))
-            print("\33[2KTX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2f) "%(self.mean_tx,math.sqrt(self.var_tx),self.mu_tx,self.sigma2_tx, self.overload_risk_tx))
-            print("\33[2KRX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2f) "%(self.mean_rx,math.sqrt(self.var_rx),self.mu_rx,self.sigma2_rx, self.overload_risk_rx))
+# [PD] 2016-05-23, The calculation of "actual" seems to be buggy.
+#            print("\33[2KEstimate (sample_rate: {:d} actual({:d}), interface: {}, linerate: {:d}".format(sampler.get_sample_rate(), n, sampler.get_interface(),self.linerate))
+            print("\33[2Ksample_rate (/s): {:d}, interface: {}, linerate (bytes/s): {:d}, link speed (Mbit/s): {:d}".format(sampler.get_sample_rate(), sampler.get_interface(),self.linerate,self.link_speed))
+            print("\33[2KTX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2e) "%(self.mean_tx,math.sqrt(self.var_tx),self.mu_tx,self.sigma2_tx, self.overload_risk_tx))
+            print("\33[2KRX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2e) "%(self.mean_rx,math.sqrt(self.var_rx),self.mu_rx,self.sigma2_rx, self.overload_risk_rx))
             print("\33[2Kestimation timer: {:.4f}".format(est_timer))
             print("\33[2Kestimation interval: {:.2f}".format(self.est_interval))
             print("\33[2Kmeter interval: %d"%(self.meter_interval))
@@ -586,8 +593,8 @@ class Monitor():
                                             username=self.username,
                                             project_id=self.project_ID,
                                             resource_id=self.resource_ID)
-#            print(json.dumps(rjson,indent=4))
-            print(str(rjson))
+            print(json.dumps(rjson,indent=4))
+#            print(str(rjson))
 
 
     def main(self):

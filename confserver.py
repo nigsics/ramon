@@ -21,7 +21,11 @@ import sys, os
 import SocketServer
 
 class ConfTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-    allow_reuse_address = True
+    def __init__(self, (host, port), handler):
+        SocketServer.TCPServer.__init__(self, (host, port), handler, bind_and_activate=False)
+        self.allow_reuse_address = True
+        self.server_bind()
+        self.server_activate()
 
 BaseRequestHandler = SocketServer.BaseRequestHandler
 

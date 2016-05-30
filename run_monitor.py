@@ -35,6 +35,7 @@ parser.add_argument('-m',"--meter_interval", help='How often to meter; default e
 parser.add_argument('-k',"--link_speed", help='Set the link speed value for the monitored interface (in Mbits per second)', type=int)
 parser.add_argument('-a',"--alarm_trigger", help='The overload risk which will trigger an alarm; default 95%%', type=int, default=95)
 parser.add_argument('-o',"--cutoff", help='A percentage of the link speed to use in the overload risk calculation; default 99%%', type=int, default="99")
+parser.add_argument('-q',"--confport", help='Port number for configuration messages (see also monconf.py); default 54736', type=int, default='54736')
 parser.add_argument('-n',"--meter_name", help='The name of this meter in Ceilometer')
 parser.add_argument('-r',"--resource_ID", help='Resource identifier for the resource to associate with the meter',nargs='?')
 parser.add_argument('-p',"--project_ID", help='Project identifier for the resource to associate with the meter',nargs='?')
@@ -50,7 +51,7 @@ args = parser.parse_args()
 
 # Mode 1: output to file and/or port
 # valid options:
-# -i, -s, -e, -m, -k, -a, -o, -d, -l, -f, -b, -v
+# -i, -s, -e, -m, -k, -a, -o, -q, -d, -l, -f, -b, -v
 # mandatory options:
 # -f or -b (obviously, since it triggers mode 1 behavior)
 # invalid options:
@@ -58,7 +59,7 @@ args = parser.parse_args()
 # 
 # Mode 2: output to ceilometer
 # valid options:
-# -n, -i, -s, -e, -m, -k, -a, -o, -r, -p, -c, -d, -l, -u, -w, -t, -v
+# -n, -i, -s, -e, -m, -k, -a, -o, -q, -r, -p, -c, -d, -l, -u, -w, -t, -v
 # mandatory options:
 # -n, -r, -p, -w
 # invalid option:
@@ -133,6 +134,7 @@ mon = Monitor(meter_name=args.meter_name,
               link_speed=args.link_speed,
               alarm_trigger_value=args.alarm_trigger,
               cutoff=args.cutoff,
+              confport=args.confport,
               resid=args.resource_ID,
               projid=args.project_ID,
               controller_IP=args.controller,
