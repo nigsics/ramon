@@ -83,6 +83,7 @@ class Monitor():
                                        # data to a local port instead of to Ceilometer
                  debug=False,
                  log=False,
+                 display_data=False,
                  resid=None,
                  projid=None,
                  username='admin',
@@ -93,6 +94,7 @@ class Monitor():
         self.mode = mode
         self.debug = debug
         self.log = log
+        self.display_data = display_data
 #        self.meter_name = 'sdn_at_edge'
         self.meter_name = meter_name
 
@@ -402,13 +404,17 @@ class Monitor():
         # is necessary is a somewhat of a mystery.
         self.var_tx = sum_square_tx - mean_square_tx
         if self.var_tx < 0:
-            print("\33[9;1H")  # 
-            print("\33[0JWARNING: self.var_tx == " + str(self.var_tx))
+            if self.display_data:
+                print("\33[9;1H")  # 
+                print("\33[0J")
+            print("WARNING: self.var_tx == " + str(self.var_tx))
             self.var_tx = round(sum_square_tx - mean_square_tx,5) # round to avoid negative value
         self.var_rx = sum_square_rx - mean_square_rx
         if self.var_rx < 0:
-            print("\33[10;1H")  # 
-            print("\33[0JWARNING: self.var_rx == " + str(self.var_rx))
+            if self.display_data:
+                print("\33[10;1H")  # 
+                print("\33[0J")
+            print("WARNING: self.var_rx == " + str(self.var_rx))
             self.var_rx = round(sum_square_rx - mean_square_rx,5) # round to avoid negative value
 
         if self.debug and False:
@@ -465,34 +471,46 @@ class Monitor():
             # To estimate a risk: compare the calculated cutoff rate with the nominal line rate.
 
         except ValueError as ve:
-            print("\33[2KError in estimation: ({}):".format(ve))
+            if self.display_data:
+                print("\33[2K")
+            print("Error in estimation: ({}):".format(ve))
             traceback.print_exc()
-            print("\33[2Kmean_tx: %.2e, mean_rx: %.2e "%(self.mean_tx,self.mean_rx))
-            print("\33[2Kvar_tx: %.2e, var_rx: %.2e "%(self.var_tx,self.var_rx))
-            print("\33[2Kmean_square_tx: %.2e, mean_square_rx: %.2e "%(mean_square_tx,mean_square_rx))
-            print("\33[2Krate_data: %s"%(rate_data,))
+            if self.display_data:
+                print("\33[2K")
+            print("mean_tx: %.2e, mean_rx: %.2e "%(self.mean_tx,self.mean_rx))
+            if self.display_data:
+                print("\33[2K")
+            print("var_tx: %.2e, var_rx: %.2e "%(self.var_tx,self.var_rx))
+            if self.display_data:
+                print("\33[2K")
+            print("mean_square_tx: %.2e, mean_square_rx: %.2e "%(mean_square_tx,mean_square_rx))
+            if self.display_data:
+                print("\33[2K")
+            print("rate_data: %s"%(rate_data,))
             exit(1)
 
-        try:
-            print("\33[H",end="") # move cursor home
-# [PD] 2016-05-23, The calculation of "actual" seems to be buggy.
-#            print("\33[2KEstimate (sample_rate: {:d} actual({:d}), interface: {}, linerate: {:d}".format(sampler.get_sample_rate(), n, sampler.get_interface(),self.linerate))
-            print("\33[2Ksample_rate (/s): {:d}, interface: {}, linerate (bytes/s): {:d}, link speed (Mbit/s): {:d}".format(sampler.get_sample_rate(), sampler.get_interface(),self.linerate,self.link_speed))
-            print("\33[2KTX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2e) "%(self.mean_tx,math.sqrt(self.var_tx),self.mu_tx,self.sigma2_tx, self.overload_risk_tx))
-            print("\33[2KRX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2e) "%(self.mean_rx,math.sqrt(self.var_rx),self.mu_rx,self.sigma2_rx, self.overload_risk_rx))
-            print("\33[2Kestimation timer: {:.4f}".format(est_timer))
-            print("\33[2Kestimation interval: {:.2f}".format(self.est_interval))
-            print("\33[2Kmeter interval: %d"%(self.meter_interval))
-            print("\33[2Kmode: %d"%(self.mode))
-            if self.debug:
-                print("\33[2Kdebug: %s"%str(self.debug))
-                print("\33[2Ksample_queue size: %s"%str(self.sample_queue.qsize()))
-        except ValueError as ve:
-            print("\33[2KError in display ({}):".format(ve))
-            traceback.print_exc()
-            print("\33[2Kvar_tx: %.2e, var_rx: %.2e "%(self.var_tx,self.var_rx))
-            print("\33[2Krate_data: %s"%(rate_data,))
-            exit(1)
+        if self.display_data:
+            try:
+                print("\33[H",end="") # move cursor home
+    # [PD] 2016-05-23, The calculation of "actual" seems to be buggy.
+    #            print("\33[2KEstimate (sample_rate: {:d} actual({:d}), interface: {}, linerate: {:d}".format(sampler.get_sample_rate(), n, sampler.get_interface(),self.linerate))
+                print("\33[2Ksample_rate (/s): {:d}, interface: {}, linerate (bytes/s): {:d}, link speed (Mbit/s): {:d}".format(sampler.get_sample_rate(), sampler.get_interface(),self.linerate,self.link_speed))
+                print("\33[2KTX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2e) "%(self.mean_tx,math.sqrt(self.var_tx),self.mu_tx,self.sigma2_tx, self.overload_risk_tx))
+                print("\33[2KRX(mean: %.2e b/s std: %.2e mu: %.2e s2: %.2e, ol-risk: %.2e) "%(self.mean_rx,math.sqrt(self.var_rx),self.mu_rx,self.sigma2_rx, self.overload_risk_rx))
+                print("\33[2Kestimation timer: {:.4f}".format(est_timer))
+                print("\33[2Kestimation interval: {:.2f}".format(self.est_interval))
+                print("\33[2Kmeter interval: %d"%(self.meter_interval))
+                print("\33[2Kmode: %d"%(self.mode))
+                if self.debug:
+                    print("\33[2Kdebug: %s"%str(self.debug))
+                    print("\33[2Ksample_queue size: %s"%str(self.sample_queue.qsize()))
+            except ValueError as ve:
+                print("\33[2KError in display ({}):".format(ve))
+                traceback.print_exc()
+                print("\33[2Kvar_tx: %.2e, var_rx: %.2e "%(self.var_tx,self.var_rx))
+                print("\33[2Krate_data: %s"%(rate_data,))
+                exit(1)
+
         # FIXME: It should not be necessary to empty the queue here
         # anymore, since the monitor code only puts stuff in the Queue
         # on request.
@@ -584,8 +602,9 @@ class Monitor():
             delta = timedelta(minutes=1)
             if now + delta > self.authexptime:
                 self.get_auth_token()
-        print("\33[15;1H")
-        print("\33[0J")      # clear rest of screen
+        if self.display_data:
+            print("\33[15;1H")
+            print("\33[0J")      # clear rest of screen
         if self.debug:
             print("\33[0J" + str(data))
         else:
@@ -593,8 +612,8 @@ class Monitor():
                                             username=self.username,
                                             project_id=self.project_ID,
                                             resource_id=self.resource_ID)
-            print(json.dumps(rjson,indent=4))
-#            print(str(rjson))
+            if self.display_data:
+                print(json.dumps(rjson,indent=4))
 
 
     def main(self):
@@ -616,7 +635,8 @@ class Monitor():
 #   We should wait for the conflistener to initialize before
 #   proceeding here.
 
-        print("\33[2J")         # clear screen
+        if self.display_data:
+            print("\33[2J")         # clear screen
         self.ceilomessage('initialized')
 
         try:

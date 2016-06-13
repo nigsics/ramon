@@ -45,6 +45,7 @@ parser.add_argument('-w',"--password", help='Password',nargs='?')
 parser.add_argument('-t',"--tenantname", help='Tenant name; default "admin"',nargs='?')
 parser.add_argument('-d',"--debug", help='Debug flag',action='store_true')
 parser.add_argument('-l',"--log", help='Log debug messages to a file of the form monitor_<meter_name>_%%Y-%%m-%%dT%%H.%%M.%%S.log',action='store_true')
+parser.add_argument('-x',"--display_data", help="Display rate data on the screen, continuously", action='store_true')
 parser.add_argument('-v',"--version", help='Show version and exit',action='store_true')
 
 args = parser.parse_args()
@@ -140,6 +141,7 @@ mon = Monitor(meter_name=args.meter_name,
               controller_IP=args.controller,
               debug=args.debug,
               log=args.log,
+              display_data=args.display_data,
               meter_file_name=args.meter_file,
 #              meter_host_and_port=args.meter_port,
               meter_host_and_port=(args.meter_host,args.meter_port),
